@@ -5,6 +5,27 @@ import type { Debt, Payment, Settings } from './types';
 const KEY_DEBTS = 'byeolbit:debts:v1';
 const KEY_PAYMENTS = 'byeolbit:payments:v1';
 const KEY_SETTINGS = 'byeolbit:settings:v1';
+const KEY_PRINCIPLES = 'byeolbit:principles:v1';
+
+export const PRINCIPLE_COUNT = 15;
+
+export const PRINCIPLE_EXAMPLES: string[] = [
+  '충동 구매 전, 별빚도장을 먼저 열어본다',
+  '부수입의 100%는 별빚 상환에 사용한다',
+  '매일 아침 가장 무거운 별빚 하나를 떠올린다',
+  '매주 일요일 저녁, 가계부를 점검한다',
+  '"지금 못 사는 게 아쉽다"는 감정을 인정한다',
+  '빚 이야기를 부끄러워하지 않고 솔직히 마주한다',
+  '카드 결제는 정해진 항목 외엔 하지 않는다',
+  '무이자 할부도 빚이다 — 함부로 신청하지 않는다',
+  '갚을 때마다 작은 축하의 의식을 한다',
+  '비교하지 않는다 — 내 별빚은 내 속도로 깨진다',
+  '우주에게 감사 인사를 매주 한 번 보낸다',
+  '부정 별빚(이율 10%↑)부터 우선적으로 깬다',
+  '빚이 다 사라진 날의 풍경을 구체적으로 떠올린다',
+  '도움이 필요할 땐 신용회복위원회·전문가에게 묻는다',
+  '오늘의 한 걸음만 본다 — 4억은 한 번에 사라지지 않는다',
+];
 
 const DEFAULT_SETTINGS: Settings = {
   strategy: 'avalanche',
@@ -58,11 +79,25 @@ export function saveSettings(s: Settings): void {
   write(KEY_SETTINGS, s);
 }
 
+export function loadPrinciples(): string[] {
+  const raw = read<string[]>(KEY_PRINCIPLES, []);
+  const padded = Array.from({ length: PRINCIPLE_COUNT }, (_, i) => raw[i] ?? '');
+  return padded;
+}
+
+export function savePrinciples(items: string[]): void {
+  const padded = Array.from({ length: PRINCIPLE_COUNT }, (_, i) =>
+    typeof items[i] === 'string' ? items[i] : ''
+  );
+  write(KEY_PRINCIPLES, padded);
+}
+
 export function clearAll(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(KEY_DEBTS);
   window.localStorage.removeItem(KEY_PAYMENTS);
   window.localStorage.removeItem(KEY_SETTINGS);
+  window.localStorage.removeItem(KEY_PRINCIPLES);
 }
 
 export function newId(): string {
@@ -79,6 +114,7 @@ export interface BackupBundle {
   debts: Debt[];
   payments: Payment[];
   settings: Settings;
+  principles?: string[];
 }
 
 export function exportData(): BackupBundle {
@@ -89,6 +125,7 @@ export function exportData(): BackupBundle {
     debts: loadDebts(),
     payments: loadPayments(),
     settings: loadSettings(),
+    principles: loadPrinciples(),
   };
 }
 
@@ -112,6 +149,9 @@ export function importData(bundle: BackupBundle): {
   savePayments(bundle.payments);
   if (bundle.settings && typeof bundle.settings === 'object') {
     saveSettings({ ...loadSettings(), ...bundle.settings });
+  }
+  if (Array.isArray(bundle.principles)) {
+    savePrinciples(bundle.principles);
   }
 
   return { debts: bundle.debts.length, payments: bundle.payments.length };

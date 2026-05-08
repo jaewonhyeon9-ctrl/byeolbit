@@ -121,6 +121,19 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <Link
+        href="/principles"
+        className="flex items-center justify-between rounded-2xl border border-warmgold/40 bg-warmgold/5 px-5 py-4 hover:bg-warmgold/10"
+      >
+        <div>
+          <div className="text-sm font-bold text-ink">내 원칙 15가지</div>
+          <div className="mt-0.5 text-xs font-medium text-ink-soft">
+            빚을 깨기 위한 나만의 약속
+          </div>
+        </div>
+        <span className="text-warmgold">→</span>
+      </Link>
+
       <section className="rounded-3xl border border-line/60 bg-paper-card/50 p-5">
         <h2 className="text-sm font-bold text-ink">엑셀 / PDF 내려받기</h2>
         <p className="mt-1 text-xs font-medium leading-relaxed text-ink-soft">

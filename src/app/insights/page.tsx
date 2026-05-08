@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { INSIGHTS, getDailyInsight } from '@/lib/insights';
 import { loadSettings } from '@/lib/storage';
@@ -47,6 +48,19 @@ export default function InsightsPage() {
           </p>
         </div>
       </section>
+
+      <Link
+        href="/principles"
+        className="flex items-center justify-between rounded-2xl border border-line/60 bg-paper-card/50 p-4 hover:bg-paper-card/70"
+      >
+        <div>
+          <div className="text-sm font-bold text-ink">내 원칙 15가지</div>
+          <div className="mt-0.5 text-xs font-medium text-ink-soft">
+            빚을 깨기 위해 나에게 거는 약속
+          </div>
+        </div>
+        <span className="text-warmgold">→</span>
+      </Link>
 
       <section>
         <div className="mb-3 flex items-center justify-between">
