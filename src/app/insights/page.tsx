@@ -67,8 +67,14 @@ export default function InsightsPage() {
           <HubCard
             href="/calendar"
             title="지출 캘린더"
-            desc="상환일 + 예정 지출 한눈에"
+            desc="OCR로 가계부 정리 + 상환일 표시"
             tone="honey"
+          />
+          <HubCard
+            href="/spending"
+            title="지출 온도"
+            desc="평소 페이스 대비 오늘·이번주·이번달"
+            tone="clay"
           />
         </div>
       </section>
@@ -119,16 +125,24 @@ function HubCard({
   href: string;
   title: string;
   desc: string;
-  tone: 'warmgold' | 'sage' | 'honey';
+  tone: 'warmgold' | 'sage' | 'honey' | 'clay';
 }) {
   const toneClasses =
     tone === 'warmgold'
       ? 'border-warmgold/40 bg-warmgold/5 hover:bg-warmgold/10'
       : tone === 'sage'
         ? 'border-sage/40 bg-sage/5 hover:bg-sage/10'
-        : 'border-honey/40 bg-honey/5 hover:bg-honey/10';
+        : tone === 'honey'
+          ? 'border-honey/40 bg-honey/5 hover:bg-honey/10'
+          : 'border-clay/40 bg-clay/5 hover:bg-clay/10';
   const arrowClass =
-    tone === 'warmgold' ? 'text-warmgold' : tone === 'sage' ? 'text-sage' : 'text-honey';
+    tone === 'warmgold'
+      ? 'text-warmgold'
+      : tone === 'sage'
+        ? 'text-sage'
+        : tone === 'honey'
+          ? 'text-honey'
+          : 'text-clay';
   return (
     <Link
       href={href}

@@ -48,13 +48,28 @@ export interface RoutineItem {
   activity: string;
 }
 
+export type ExpenseCategory =
+  | 'food'
+  | 'transport'
+  | 'housing'
+  | 'utility'
+  | 'shopping'
+  | 'medical'
+  | 'entertainment'
+  | 'cardbill'
+  | 'gift'
+  | 'subscription'
+  | 'education'
+  | 'other';
+
 export interface ScheduledExpense {
   id: string;
   name: string;
   amount: number;
   date: string;
-  category?: string;
+  category?: ExpenseCategory;
   paid?: boolean;
+  source?: 'manual' | 'ocr';
 }
 
 export type Strategy = 'snowball' | 'avalanche';
