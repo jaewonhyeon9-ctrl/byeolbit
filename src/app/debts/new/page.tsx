@@ -10,10 +10,24 @@ import {
   CLASSIFICATION_TONE,
 } from '@/lib/classifier';
 import { loadDebts, newId, saveDebts } from '@/lib/storage';
-import type { Debt, DebtCategory, DebtClassification } from '@/lib/types';
-import { formatKRWShort } from '@/lib/format';
+import type {
+  Debt,
+  DebtCategory,
+  DebtClassification,
+  RepaymentFrequency,
+} from '@/lib/types';
+import { formatKRWShort, paymentLabelForFrequency } from '@/lib/format';
 
 const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS) as DebtCategory[];
+
+const FREQUENCY_OPTIONS: { value: RepaymentFrequency; label: string; hint: string }[] = [
+  { value: 'monthly', label: '매월', hint: '대부분의 대출·카드 대금' },
+  { value: 'weekly', label: '매주', hint: '주간 자동이체 등' },
+  { value: 'daily', label: '매일', hint: '주말 포함 매일' },
+  { value: 'banking', label: '영업일', hint: '평일만 (월~금)' },
+];
+
+const WEEK_DAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 export default function NewDebtPage() {
   const router = useRouter();
@@ -23,12 +37,13 @@ export default function NewDebtPage() {
   const [originalAmount, setOriginalAmount] = useState('');
   const [rate, setRate] = useState('');
   const [minPayment, setMinPayment] = useState('');
+  const [frequency, setFrequency] = useState<RepaymentFrequency>('monthly');
   const [dueDay, setDueDay] = useState('');
+  const [weekDay, setWeekDay] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [overrideClass, setOverrideClass] = useState<DebtClassification | ''>('');
   const [submitting, setSubmitting] = useState(false);
 
-  // OCR state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -86,7 +101,10 @@ export default function NewDebtPage() {
       if (data.originalAmount != null) setOriginalAmount(String(data.originalAmount));
       if (data.interestRate != null) setRate(String(data.interestRate));
       if (data.minPayment != null) setMinPayment(String(data.minPayment));
-      if (data.dueDay != null) setDueDay(String(data.dueDay));
+      if (data.dueDay != null) {
+        setDueDay(String(data.dueDay));
+        setFrequency('monthly');
+      }
       if (data.note) setNote(data.note);
 
       setOcrConfidence(data.confidence ?? null);
@@ -109,6 +127,7 @@ export default function NewDebtPage() {
     e.preventDefault();
     if (!valid || submitting) return;
     setSubmitting(true);
+
     const debt: Debt = {
       id: newId(),
       name: name.trim(),
@@ -118,7 +137,9 @@ export default function NewDebtPage() {
       interestRate: rateN,
       minPayment: minN,
       classification: overrideClass || undefined,
-      dueDay: Number(dueDay) || undefined,
+      frequency,
+      dueDay: frequency === 'monthly' && dueDay ? Number(dueDay) : undefined,
+      weekDay: frequency === 'weekly' && weekDay != null ? weekDay : undefined,
       note: note.trim() || undefined,
       createdAt: new Date().toISOString(),
       paidOff: false,
@@ -150,16 +171,7 @@ export default function NewDebtPage() {
             onClick={() => fileInputRef.current?.click()}
             className="flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-warmgold/40 px-4 py-5 text-warmgold hover:bg-warmgold/10"
           >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
@@ -201,18 +213,10 @@ export default function NewDebtPage() {
                 </>
               )}
               <div className="mt-2 flex gap-3 text-[11px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-warmgold hover:underline"
-                >
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-warmgold hover:underline">
                   다른 이미지
                 </button>
-                <button
-                  type="button"
-                  onClick={clearOcr}
-                  className="text-ink-soft hover:text-ink"
-                >
+                <button type="button" onClick={clearOcr} className="text-ink-soft hover:text-ink">
                   초기화
                 </button>
               </div>
@@ -280,7 +284,7 @@ export default function NewDebtPage() {
             className={inputCls}
           />
         </Field>
-        <Field label="월 최소 상환 (원)">
+        <Field label={`${paymentLabelForFrequency(frequency)} (원)`}>
           <input
             inputMode="numeric"
             value={minPayment}
@@ -291,15 +295,70 @@ export default function NewDebtPage() {
         </Field>
       </div>
 
-      <Field label="매월 상환일 (선택, 1-31)">
-        <input
-          inputMode="numeric"
-          value={dueDay}
-          onChange={(e) => setDueDay(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
-          placeholder="25"
-          className={inputCls}
-        />
-      </Field>
+      <section className="flex flex-col gap-3 rounded-2xl border border-line/60 bg-paper-card/40 p-4">
+        <div>
+          <div className="text-xs font-bold text-ink-soft">상환 주기</div>
+          <p className="mt-0.5 text-[11px] font-medium text-ink-soft/80">
+            얼마나 자주 갚을 빚인가요?
+          </p>
+        </div>
+
+        <div className="flex gap-1 rounded-full border border-line/60 bg-paper/50 p-1">
+          {FREQUENCY_OPTIONS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFrequency(f.value)}
+              className={`flex-1 rounded-full py-1.5 text-xs font-bold transition-colors ${
+                frequency === f.value
+                  ? 'bg-warmgold text-ink'
+                  : 'text-ink-soft hover:text-ink'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] font-medium text-ink-soft">
+          {FREQUENCY_OPTIONS.find((f) => f.value === frequency)?.hint}
+        </p>
+
+        {frequency === 'monthly' && (
+          <Field label="매월 상환일 (1-31, 선택)">
+            <input
+              inputMode="numeric"
+              value={dueDay}
+              onChange={(e) => setDueDay(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+              placeholder="25"
+              className={inputCls}
+            />
+          </Field>
+        )}
+
+        {frequency === 'weekly' && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-ink-soft">매주 어느 요일?</span>
+            <div className="flex gap-1">
+              {WEEK_DAYS.map((d, i) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setWeekDay(i)}
+                  className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-colors ${
+                    weekDay === i
+                      ? 'border-warmgold bg-warmgold text-ink'
+                      : 'border-line/60 bg-paper/50 text-ink-soft hover:text-ink'
+                  } ${i === 0 ? 'text-clay' : ''} ${i === 6 ? 'text-warmgold' : ''} ${
+                    weekDay === i ? '!text-ink' : ''
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <Field label="메모 (선택)">
         <textarea

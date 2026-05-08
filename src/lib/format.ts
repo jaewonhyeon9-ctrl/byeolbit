@@ -1,3 +1,7 @@
+import type { Debt, RepaymentFrequency } from './types';
+
+const WEEK_DAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
 export function formatKRW(amount: number): string {
   if (!Number.isFinite(amount)) return '—';
   if (amount === 0) return '0원';
@@ -46,4 +50,35 @@ export function formatMonths(months: number): string {
 export function formatPercent(rate: number, fractionDigits = 1): string {
   if (!Number.isFinite(rate)) return '—';
   return `${rate.toFixed(fractionDigits)}%`;
+}
+
+export const FREQUENCY_LABELS: Record<RepaymentFrequency, string> = {
+  monthly: '매월',
+  weekly: '매주',
+  daily: '매일',
+  banking: '영업일',
+};
+
+export function formatFrequency(d: Pick<Debt, 'frequency' | 'dueDay' | 'weekDay'>): string {
+  const freq = d.frequency ?? 'monthly';
+  if (freq === 'monthly') {
+    return d.dueDay ? `매월 ${d.dueDay}일` : '매월';
+  }
+  if (freq === 'weekly') {
+    if (d.weekDay != null && d.weekDay >= 0 && d.weekDay < 7) {
+      return `매주 ${WEEK_DAYS[d.weekDay]}요일`;
+    }
+    return '매주';
+  }
+  if (freq === 'banking') return '영업일 매일';
+  return '매일';
+}
+
+export function paymentLabelForFrequency(freq: RepaymentFrequency): string {
+  switch (freq) {
+    case 'monthly': return '월 최소 상환';
+    case 'weekly': return '주 최소 상환';
+    case 'daily': return '일 최소 상환';
+    case 'banking': return '영업일 1회 상환';
+  }
 }

@@ -13,6 +13,8 @@ export type DebtCategory =
 
 export type DebtClassification = 'good' | 'neutral' | 'bad';
 
+export type RepaymentFrequency = 'monthly' | 'weekly' | 'daily' | 'banking';
+
 export interface Debt {
   id: string;
   name: string;
@@ -23,7 +25,9 @@ export interface Debt {
   minPayment: number;
   classification?: DebtClassification;
   startDate?: string;
+  frequency?: RepaymentFrequency;
   dueDay?: number;
+  weekDay?: number;
   note?: string;
   createdAt: string;
   paidOff: boolean;

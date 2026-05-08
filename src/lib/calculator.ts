@@ -1,5 +1,24 @@
-import type { Debt, Strategy } from './types';
+import type { Debt, RepaymentFrequency, Strategy } from './types';
 import { classify } from './classifier';
+
+const PERIODS_PER_MONTH: Record<RepaymentFrequency, number> = {
+  monthly: 1,
+  weekly: 52 / 12,
+  daily: 365 / 12,
+  banking: 252 / 12,
+};
+
+export function getFrequency(d: Debt): RepaymentFrequency {
+  return d.frequency ?? 'monthly';
+}
+
+export function periodsPerMonth(freq: RepaymentFrequency): number {
+  return PERIODS_PER_MONTH[freq];
+}
+
+export function monthlyMinPayment(d: Debt): number {
+  return d.minPayment * periodsPerMonth(getFrequency(d));
+}
 
 export function activeDebts(debts: Debt[]): Debt[] {
   return debts.filter((d) => !d.paidOff);
@@ -10,7 +29,7 @@ export function totalPrincipal(debts: Debt[]): number {
 }
 
 export function totalMinPayment(debts: Debt[]): number {
-  return activeDebts(debts).reduce((s, d) => s + d.minPayment, 0);
+  return activeDebts(debts).reduce((s, d) => s + monthlyMinPayment(d), 0);
 }
 
 export function avgInterestRate(debts: Debt[]): number {
