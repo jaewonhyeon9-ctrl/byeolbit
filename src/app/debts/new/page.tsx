@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   classify,
   CATEGORY_LABELS,
@@ -28,6 +28,19 @@ export default function NewDebtPage() {
   const [overrideClass, setOverrideClass] = useState<DebtClassification | ''>('');
   const [submitting, setSubmitting] = useState(false);
 
+  // OCR state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState('');
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   const principalN = Number(principal) || 0;
   const rateN = Number(rate) || 0;
   const minN = Number(minPayment) || 0;
@@ -40,6 +53,57 @@ export default function NewDebtPage() {
   const tone = CLASSIFICATION_TONE[finalClass];
 
   const valid = name.trim().length > 0 && principalN > 0 && rateN >= 0;
+
+  async function handleFileSelect(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setOcrError('');
+    setOcrConfidence(null);
+    setOcrLoading(true);
+
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await fetch('/api/ocr/extract-debt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mimeType: file.type }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error || `OCR 실패 (${res.status})`);
+      }
+      const data = (await res.json()) as ExtractedDebt;
+
+      if (data.name) setName(data.name);
+      if (data.category && CATEGORY_OPTIONS.includes(data.category as DebtCategory)) {
+        setCategory(data.category as DebtCategory);
+      }
+      if (data.principal != null) setPrincipal(String(data.principal));
+      if (data.originalAmount != null) setOriginalAmount(String(data.originalAmount));
+      if (data.interestRate != null) setRate(String(data.interestRate));
+      if (data.minPayment != null) setMinPayment(String(data.minPayment));
+      if (data.dueDay != null) setDueDay(String(data.dueDay));
+      if (data.note) setNote(data.note);
+
+      setOcrConfidence(data.confidence ?? null);
+    } catch (err) {
+      setOcrError(err instanceof Error ? err.message : 'OCR 실패');
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  function clearOcr() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl('');
+    setOcrConfidence(null);
+    setOcrError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,8 +132,94 @@ export default function NewDebtPage() {
     <form onSubmit={submit} className="flex flex-col gap-5">
       <header>
         <h1 className="text-lg font-bold text-ink">새 별빚 새기기</h1>
-        <p className="text-xs text-ink-soft">이 별빚이 곧 별빛이 됩니다.</p>
+        <p className="text-xs font-medium text-ink-soft">이 별빚이 곧 별빛이 됩니다.</p>
       </header>
+
+      <section className="rounded-2xl border border-warmgold/40 bg-warmgold/5 p-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        {!previewUrl && !ocrLoading && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-warmgold/40 px-4 py-5 text-warmgold hover:bg-warmgold/10"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            <span className="text-sm font-bold">캡처에서 자동 입력</span>
+            <span className="text-[11px] font-medium text-ink-soft">
+              은행·카드사 앱 화면을 올려주세요
+            </span>
+          </button>
+        )}
+
+        {ocrLoading && (
+          <div className="flex flex-col items-center gap-2 py-5">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-warmgold/30 border-t-warmgold" />
+            <p className="text-xs font-medium text-ink-soft">별빚을 읽고 있어요...</p>
+          </div>
+        )}
+
+        {previewUrl && !ocrLoading && (
+          <div className="flex gap-3">
+            <img
+              src={previewUrl}
+              alt="업로드한 캡처"
+              className="h-20 w-20 shrink-0 rounded-lg border border-line/60 object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              {ocrError ? (
+                <>
+                  <p className="text-sm font-bold text-clay">읽기 실패</p>
+                  <p className="mt-1 text-xs font-medium text-ink-soft">{ocrError}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-ink">자동 입력 완료</p>
+                  {ocrConfidence != null && (
+                    <p className="mt-1 text-xs font-medium text-ink-soft">
+                      신뢰도 {Math.round(ocrConfidence * 100)}% — 아래 값 확인해주세요
+                    </p>
+                  )}
+                </>
+              )}
+              <div className="mt-2 flex gap-3 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-warmgold hover:underline"
+                >
+                  다른 이미지
+                </button>
+                <button
+                  type="button"
+                  onClick={clearOcr}
+                  className="text-ink-soft hover:text-ink"
+                >
+                  초기화
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       <Field label="이름" required>
         <input
@@ -77,7 +227,6 @@ export default function NewDebtPage() {
           onChange={(e) => setName(e.target.value)}
           placeholder="예: 신한카드 카드론"
           className={inputCls}
-          autoFocus
         />
       </Field>
 
@@ -105,7 +254,7 @@ export default function NewDebtPage() {
             className={inputCls}
           />
           {principalN > 0 && (
-            <span className="mt-1 text-[10px] text-ink-soft">
+            <span className="mt-1 text-[10px] font-medium text-ink-soft">
               ≈ {formatKRWShort(principalN)}원
             </span>
           )}
@@ -167,7 +316,9 @@ export default function NewDebtPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-ink-soft">분류</div>
+            <div className="text-[10px] font-medium uppercase tracking-widest text-ink-soft">
+              분류
+            </div>
             <div className={`text-base font-bold ${tone.text}`}>
               {CLASSIFICATION_LABELS[finalClass]}
             </div>
@@ -175,7 +326,7 @@ export default function NewDebtPage() {
           <select
             value={overrideClass}
             onChange={(e) => setOverrideClass(e.target.value as DebtClassification | '')}
-            className="rounded-md border border-line/60 bg-paper/40 px-2 py-1 text-xs text-ink"
+            className="rounded-md border border-line/60 bg-paper/40 px-2 py-1 text-xs font-medium text-ink"
           >
             <option value="" className="bg-paper">자동 ({CLASSIFICATION_LABELS[auto]})</option>
             <option value="good" className="bg-paper">긍정으로 지정</option>
@@ -183,7 +334,7 @@ export default function NewDebtPage() {
             <option value="bad" className="bg-paper">부정으로 지정</option>
           </select>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+        <p className="mt-2 text-xs font-medium leading-relaxed text-ink-soft">
           {CLASSIFICATION_DESCRIPTIONS[finalClass]}
         </p>
       </section>
@@ -192,14 +343,14 @@ export default function NewDebtPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 rounded-full border border-line/60 py-3 text-sm font-medium text-ink-soft hover:text-ink"
+          className="flex-1 rounded-full border border-line/60 py-3 text-sm font-bold text-ink-soft hover:text-ink"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={!valid || submitting}
-          className="flex-[2] rounded-full bg-warmgold py-3 text-sm font-semibold text-ink transition-opacity disabled:opacity-40"
+          className="flex-[2] rounded-full bg-warmgold py-3 text-sm font-bold text-ink transition-opacity disabled:opacity-40"
         >
           별빚 새기기
         </button>
@@ -208,8 +359,33 @@ export default function NewDebtPage() {
   );
 }
 
+interface ExtractedDebt {
+  name?: string | null;
+  category?: string | null;
+  principal?: number | null;
+  originalAmount?: number | null;
+  interestRate?: number | null;
+  minPayment?: number | null;
+  dueDay?: number | null;
+  note?: string | null;
+  confidence?: number | null;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64Part = result.split(',')[1] ?? '';
+      resolve(base64Part);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 const inputCls =
-  'w-full rounded-xl border border-line/60 bg-paper/40 px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/50 focus:border-warmgold/60 focus:outline-none focus:ring-2 focus:ring-warmgold/20';
+  'w-full rounded-xl border border-line/60 bg-paper/50 px-3 py-2.5 text-sm font-bold text-ink placeholder:font-medium placeholder:text-ink-soft/50 focus:border-warmgold/60 focus:outline-none focus:ring-2 focus:ring-warmgold/20';
 
 function Field({
   label,
@@ -222,7 +398,7 @@ function Field({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-ink-soft">
+      <span className="text-xs font-bold text-ink-soft">
         {label}
         {required && <span className="ml-1 text-clay">*</span>}
       </span>
