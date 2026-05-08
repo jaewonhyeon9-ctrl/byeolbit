@@ -56,6 +56,26 @@ export default function NewDebtPage() {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      if (!e.clipboardData) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+
+      const items = Array.from(e.clipboardData.items);
+      const imageItem = items.find((it) => it.type.startsWith('image/'));
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      void processFile(file);
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const principalN = Number(principal) || 0;
   const rateN = Number(rate) || 0;
   const minN = Number(minPayment) || 0;
@@ -69,10 +89,12 @@ export default function NewDebtPage() {
 
   const valid = name.trim().length > 0 && principalN > 0 && rateN >= 0;
 
-  async function handleFileSelect(e: ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) void processFile(file);
+  }
 
+  async function processFile(file: File) {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
@@ -177,7 +199,15 @@ export default function NewDebtPage() {
             </svg>
             <span className="text-sm font-bold">캡처에서 자동 입력</span>
             <span className="text-[11px] font-medium text-ink-soft">
-              은행·카드사 앱 화면을 올려주세요
+              은행·카드사 앱 화면 올리기 · PC면{' '}
+              <kbd className="rounded border border-line/60 bg-paper-card/80 px-1 py-0.5 font-mono text-[9px]">
+                Ctrl
+              </kbd>
+              +
+              <kbd className="rounded border border-line/60 bg-paper-card/80 px-1 py-0.5 font-mono text-[9px]">
+                V
+              </kbd>{' '}
+              로 붙여넣기
             </span>
           </button>
         )}

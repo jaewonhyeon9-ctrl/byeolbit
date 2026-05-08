@@ -69,6 +69,63 @@ export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const BACKUP_VERSION = 1;
+const APP_VERSION = '0.2';
+
+export interface BackupBundle {
+  version: number;
+  exportedAt: string;
+  appVersion: string;
+  debts: Debt[];
+  payments: Payment[];
+  settings: Settings;
+}
+
+export function exportData(): BackupBundle {
+  return {
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    appVersion: APP_VERSION,
+    debts: loadDebts(),
+    payments: loadPayments(),
+    settings: loadSettings(),
+  };
+}
+
+export function importData(bundle: BackupBundle): {
+  debts: number;
+  payments: number;
+} {
+  if (!bundle || typeof bundle !== 'object') {
+    throw new Error('백업 파일을 읽을 수 없어요.');
+  }
+  if (bundle.version !== BACKUP_VERSION) {
+    throw new Error(
+      `지원하지 않는 백업 버전 (v${bundle.version}). 이 앱은 v${BACKUP_VERSION}만 지원합니다.`
+    );
+  }
+  if (!Array.isArray(bundle.debts) || !Array.isArray(bundle.payments)) {
+    throw new Error('백업 파일이 손상됐어요. debts/payments 누락.');
+  }
+
+  saveDebts(bundle.debts);
+  savePayments(bundle.payments);
+  if (bundle.settings && typeof bundle.settings === 'object') {
+    saveSettings({ ...loadSettings(), ...bundle.settings });
+  }
+
+  return { debts: bundle.debts.length, payments: bundle.payments.length };
+}
+
+export function getStorageStats() {
+  return {
+    debts: loadDebts().length,
+    activeDebts: loadDebts().filter((d) => !d.paidOff).length,
+    paidOffDebts: loadDebts().filter((d) => d.paidOff).length,
+    payments: loadPayments().length,
+  };
+}
+
 export interface RecordPaymentResult {
   debt: Debt;
   payment: Payment;
