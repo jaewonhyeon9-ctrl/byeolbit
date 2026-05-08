@@ -86,3 +86,113 @@ export function totalInterestPerMonth(debts: Debt[]): number {
     0
   );
 }
+
+export interface DebtPayoffEntry {
+  debtId: string;
+  payoffMonth: number;
+  totalInterestPaid: number;
+}
+
+export interface PortfolioSimulation {
+  totalMonths: number;
+  totalInterestPaid: number;
+  perDebt: DebtPayoffEntry[];
+  finite: boolean;
+  insufficientMonthly: boolean;
+}
+
+export function simulatePayoff(
+  debts: Debt[],
+  monthlyTotal: number,
+  strategy: Strategy,
+  maxMonths = 600
+): PortfolioSimulation {
+  const work = activeDebts(debts).map((d) => ({
+    id: d.id,
+    principal: d.principal,
+    rateMonthly: d.interestRate / 100 / 12,
+    rateAnnual: d.interestRate,
+    minPayment: monthlyMinPayment(d),
+    payoffMonth: -1,
+    totalInterestPaid: 0,
+  }));
+
+  if (work.length === 0) {
+    return {
+      totalMonths: 0,
+      totalInterestPaid: 0,
+      perDebt: [],
+      finite: true,
+      insufficientMonthly: false,
+    };
+  }
+
+  const totalMinSum = work.reduce((s, d) => s + d.minPayment, 0);
+  const insufficient = monthlyTotal < totalMinSum - 0.01;
+
+  for (let m = 1; m <= maxMonths; m++) {
+    for (const d of work) {
+      if (d.principal <= 0) continue;
+      const interest = d.principal * d.rateMonthly;
+      d.principal += interest;
+      d.totalInterestPaid += interest;
+    }
+
+    let remaining = monthlyTotal;
+
+    for (const d of work) {
+      if (d.principal <= 0) continue;
+      const pay = Math.min(d.minPayment, d.principal, remaining);
+      d.principal -= pay;
+      remaining -= pay;
+    }
+
+    const priority = work
+      .filter((d) => d.principal > 0)
+      .sort((a, b) =>
+        strategy === 'snowball'
+          ? a.principal - b.principal
+          : b.rateAnnual - a.rateAnnual
+      );
+
+    for (const d of priority) {
+      if (remaining <= 0) break;
+      const pay = Math.min(d.principal, remaining);
+      d.principal -= pay;
+      remaining -= pay;
+    }
+
+    for (const d of work) {
+      if (d.principal <= 0.5 && d.payoffMonth === -1) {
+        d.payoffMonth = m;
+        d.principal = 0;
+      }
+    }
+
+    if (work.every((d) => d.principal <= 0)) {
+      return {
+        totalMonths: m,
+        totalInterestPaid: work.reduce((s, d) => s + d.totalInterestPaid, 0),
+        perDebt: work.map((d) => ({
+          debtId: d.id,
+          payoffMonth: d.payoffMonth,
+          totalInterestPaid: d.totalInterestPaid,
+        })),
+        finite: true,
+        insufficientMonthly: insufficient,
+      };
+    }
+  }
+
+  return {
+    totalMonths: Infinity,
+    totalInterestPaid: work.reduce((s, d) => s + d.totalInterestPaid, 0),
+    perDebt: work.map((d) => ({
+      debtId: d.id,
+      payoffMonth: d.payoffMonth === -1 ? Infinity : d.payoffMonth,
+      totalInterestPaid: d.totalInterestPaid,
+    })),
+    finite: false,
+    insufficientMonthly: insufficient,
+  };
+}
