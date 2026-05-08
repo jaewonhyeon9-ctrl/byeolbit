@@ -9,6 +9,7 @@ import {
   importData,
   type BackupBundle,
 } from '@/lib/storage';
+import { downloadCSV } from '@/lib/export';
 import { formatKRW } from '@/lib/format';
 import { totalPrincipal } from '@/lib/calculator';
 import { loadDebts } from '@/lib/storage';
@@ -117,6 +118,42 @@ export default function SettingsPage() {
           <Stat label="별빛 (완납)" value={`${stats.paidOffDebts}개`} />
           <Stat label="총 별빚 합계" value={formatKRW(totalDebt)} />
           <Stat label="상환 기록" value={`${stats.payments}건`} />
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-line/60 bg-paper-card/50 p-5">
+        <h2 className="text-sm font-bold text-ink">엑셀 / PDF 내려받기</h2>
+        <p className="mt-1 text-xs font-medium leading-relaxed text-ink-soft">
+          별빚 목록 + 상환 기록을 보기 좋게 정리한 파일로 내려받으실 수 있어요.
+          엑셀은 통계·필터링하실 때, PDF는 인쇄·보관하실 때 좋습니다.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={downloadCSV}
+            className="flex items-center justify-center gap-2 rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-sm font-bold text-sage hover:bg-sage/20"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="9" y1="13" x2="15" y2="13" />
+              <line x1="9" y1="17" x2="15" y2="17" />
+            </svg>
+            엑셀로 내려받기 (.csv)
+          </button>
+          <Link
+            href="/report"
+            className="flex items-center justify-center gap-2 rounded-xl border border-warmgold/40 bg-warmgold/10 px-4 py-3 text-sm font-bold text-warmgold hover:bg-warmgold/20"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <path d="M9 15h6" />
+              <path d="M9 11h6" />
+              <path d="M9 19h2" />
+            </svg>
+            PDF로 보기 (인쇄·저장)
+          </Link>
         </div>
       </section>
 
