@@ -10,6 +10,7 @@ import {
   type BackupBundle,
 } from '@/lib/storage';
 import { downloadCSV } from '@/lib/export';
+import { encryptShare } from '@/lib/share-crypto';
 import { formatKRW } from '@/lib/format';
 import { totalPrincipal } from '@/lib/calculator';
 import { loadDebts } from '@/lib/storage';
@@ -30,6 +31,54 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [shareTtlDays, setShareTtlDays] = useState(7);
+  const [shareLink, setShareLink] = useState<{
+    url: string;
+    expiresAt: string;
+  } | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+
+  async function createShareLink() {
+    setShareLoading(true);
+    setShareError('');
+    setShareLink(null);
+    setShareCopied(false);
+    try {
+      const bundle = exportData();
+      const { payload, keyB64 } = await encryptShare(bundle);
+      const ttlSeconds = shareTtlDays * 24 * 60 * 60;
+      const res = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, ttl: ttlSeconds }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || `생성 실패 (${res.status})`);
+      }
+      const result = (await res.json()) as { id: string; expiresAt: string };
+      const url = `${window.location.origin}/share/${result.id}#k=${keyB64}`;
+      setShareLink({ url, expiresAt: result.expiresAt });
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : '공유 링크 생성 실패');
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink.url);
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      window.prompt('아래 링크를 복사하세요', shareLink.url);
+    }
+  }
 
   function refreshStats() {
     setStats(getStorageStats());
@@ -228,6 +277,88 @@ export default function SettingsPage() {
             {importStatus.type === 'success'
               ? `복원 완료. 별빚 ${importStatus.debts}개, 상환 기록 ${importStatus.payments}건 불러왔어요.`
               : importStatus.message}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-3xl border border-honey/40 bg-honey/5 p-5">
+        <h2 className="text-sm font-bold text-ink">공유 링크 만들기</h2>
+        <p className="mt-1 text-xs font-medium leading-relaxed text-ink-soft">
+          현재 데이터를 <strong className="text-ink">읽기 전용 링크</strong>로 만들어
+          가족·상담사에게 공유하실 수 있어요.
+          <br />
+          데이터는 본인 브라우저에서 암호화되고, 서버는 풀 수 없습니다.
+          만료되면 자동 삭제돼요.
+        </p>
+
+        <div className="mt-4 flex gap-1 rounded-full border border-line/60 bg-paper/40 p-1 text-xs">
+          {[1, 7, 30].map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setShareTtlDays(d)}
+              className={`flex-1 rounded-full py-1.5 font-bold transition-colors ${
+                shareTtlDays === d
+                  ? 'bg-honey text-ink'
+                  : 'text-ink-soft hover:text-ink'
+              }`}
+            >
+              {d}일
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={createShareLink}
+          disabled={shareLoading}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-honey px-4 py-3 text-sm font-bold text-ink hover:bg-honey/90 disabled:opacity-50"
+        >
+          {shareLoading ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+              만드는 중...
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              {shareTtlDays}일 공유 링크 만들기
+            </>
+          )}
+        </button>
+
+        {shareError && (
+          <div className="mt-3 rounded-xl border border-clay/40 bg-clay/10 p-3 text-xs font-bold text-clay">
+            {shareError}
+          </div>
+        )}
+
+        {shareLink && (
+          <div className="mt-3 rounded-xl border border-sage/40 bg-sage/10 p-3">
+            <div className="flex items-center gap-2">
+              <input
+                value={shareLink.url}
+                readOnly
+                onClick={(e) => e.currentTarget.select()}
+                className="flex-1 truncate rounded-md border border-line/60 bg-paper-card/80 px-2 py-1.5 text-[11px] font-medium text-ink"
+              />
+              <button
+                onClick={copyShareLink}
+                className="shrink-0 rounded-md bg-warmgold px-3 py-1.5 text-[11px] font-bold text-ink"
+              >
+                {shareCopied ? '복사됨' : '복사'}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] font-medium text-ink-soft">
+              만료: {new Date(shareLink.expiresAt).toLocaleString('ko-KR')}
+              <br />⚠ 링크엔 복호화 키가 포함되어 있어요. 받는 사람만 보세요.
+            </p>
           </div>
         )}
       </section>
