@@ -1,11 +1,19 @@
 'use client';
 
-import type { Debt, Payment, Settings } from './types';
+import type {
+  Debt,
+  Payment,
+  RoutineItem,
+  ScheduledExpense,
+  Settings,
+} from './types';
 
 const KEY_DEBTS = 'byeolbit:debts:v1';
 const KEY_PAYMENTS = 'byeolbit:payments:v1';
 const KEY_SETTINGS = 'byeolbit:settings:v1';
 const KEY_PRINCIPLES = 'byeolbit:principles:v1';
+const KEY_ROUTINE = 'byeolbit:routine:v1';
+const KEY_EXPENSES = 'byeolbit:expenses:v1';
 
 export const PRINCIPLE_COUNT = 15;
 
@@ -92,12 +100,38 @@ export function savePrinciples(items: string[]): void {
   write(KEY_PRINCIPLES, padded);
 }
 
+export const ROUTINE_EXAMPLES: { time: string; activity: string }[] = [
+  { time: '07:00', activity: '기상 후 별빚도장 앱 열기 — 오늘의 메시지 한 번 읽기' },
+  { time: '08:00', activity: '도시락 준비 (외식비 절약)' },
+  { time: '12:00', activity: '점심 — 정해진 한도 내에서' },
+  { time: '14:00', activity: '영수증 OCR로 가계부 입력' },
+  { time: '18:00', activity: '오늘 지출 점검 + 충동 구매 있었는지 자문' },
+  { time: '22:00', activity: '별빚도장에서 "오늘 갚기" 입력' },
+  { time: '23:00', activity: '잠들기 전 감사 한 가지 떠올리기' },
+];
+
+export function loadRoutine(): RoutineItem[] {
+  return read<RoutineItem[]>(KEY_ROUTINE, []);
+}
+export function saveRoutine(items: RoutineItem[]): void {
+  write(KEY_ROUTINE, items);
+}
+
+export function loadExpenses(): ScheduledExpense[] {
+  return read<ScheduledExpense[]>(KEY_EXPENSES, []);
+}
+export function saveExpenses(items: ScheduledExpense[]): void {
+  write(KEY_EXPENSES, items);
+}
+
 export function clearAll(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(KEY_DEBTS);
   window.localStorage.removeItem(KEY_PAYMENTS);
   window.localStorage.removeItem(KEY_SETTINGS);
   window.localStorage.removeItem(KEY_PRINCIPLES);
+  window.localStorage.removeItem(KEY_ROUTINE);
+  window.localStorage.removeItem(KEY_EXPENSES);
 }
 
 export function newId(): string {
@@ -115,6 +149,8 @@ export interface BackupBundle {
   payments: Payment[];
   settings: Settings;
   principles?: string[];
+  routine?: RoutineItem[];
+  expenses?: ScheduledExpense[];
 }
 
 export function exportData(): BackupBundle {
@@ -126,6 +162,8 @@ export function exportData(): BackupBundle {
     payments: loadPayments(),
     settings: loadSettings(),
     principles: loadPrinciples(),
+    routine: loadRoutine(),
+    expenses: loadExpenses(),
   };
 }
 
@@ -152,6 +190,12 @@ export function importData(bundle: BackupBundle): {
   }
   if (Array.isArray(bundle.principles)) {
     savePrinciples(bundle.principles);
+  }
+  if (Array.isArray(bundle.routine)) {
+    saveRoutine(bundle.routine);
+  }
+  if (Array.isArray(bundle.expenses)) {
+    saveExpenses(bundle.expenses);
   }
 
   return { debts: bundle.debts.length, payments: bundle.payments.length };

@@ -42,6 +42,21 @@ export interface Payment {
   note?: string;
 }
 
+export interface RoutineItem {
+  id: string;
+  time: string;
+  activity: string;
+}
+
+export interface ScheduledExpense {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  category?: string;
+  paid?: boolean;
+}
+
 export type Strategy = 'snowball' | 'avalanche';
 
 export interface Settings {

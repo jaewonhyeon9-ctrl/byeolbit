@@ -49,23 +49,36 @@ export default function InsightsPage() {
         </div>
       </section>
 
-      <Link
-        href="/principles"
-        className="flex items-center justify-between rounded-2xl border border-line/60 bg-paper-card/50 p-4 hover:bg-paper-card/70"
-      >
-        <div>
-          <div className="text-sm font-bold text-ink">내 원칙 15가지</div>
-          <div className="mt-0.5 text-xs font-medium text-ink-soft">
-            빚을 깨기 위해 나에게 거는 약속
-          </div>
+      <section>
+        <h2 className="mb-2 text-sm font-bold text-ink">나만의 도구</h2>
+        <div className="grid grid-cols-1 gap-2">
+          <HubCard
+            href="/principles"
+            title="내 원칙 15가지"
+            desc="빚을 깨기 위해 나에게 거는 약속"
+            tone="warmgold"
+          />
+          <HubCard
+            href="/routine"
+            title="빚 줄이기 일과표"
+            desc="매일 지킬 시간대별 루틴"
+            tone="sage"
+          />
+          <HubCard
+            href="/calendar"
+            title="지출 캘린더"
+            desc="상환일 + 예정 지출 한눈에"
+            tone="honey"
+          />
         </div>
-        <span className="text-warmgold">→</span>
-      </Link>
+      </section>
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">전체 인사이트</h2>
-          <span className="text-xs text-ink-soft">{INSIGHTS.length}개의 별빛</span>
+          <h2 className="text-sm font-bold text-ink">전체 인사이트</h2>
+          <span className="text-xs font-medium text-ink-soft">
+            {INSIGHTS.length}개의 별빛
+          </span>
         </div>
         <div className="flex flex-col gap-2">
           {INSIGHTS.map((it) => {
@@ -94,5 +107,38 @@ export default function InsightsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function HubCard({
+  href,
+  title,
+  desc,
+  tone,
+}: {
+  href: string;
+  title: string;
+  desc: string;
+  tone: 'warmgold' | 'sage' | 'honey';
+}) {
+  const toneClasses =
+    tone === 'warmgold'
+      ? 'border-warmgold/40 bg-warmgold/5 hover:bg-warmgold/10'
+      : tone === 'sage'
+        ? 'border-sage/40 bg-sage/5 hover:bg-sage/10'
+        : 'border-honey/40 bg-honey/5 hover:bg-honey/10';
+  const arrowClass =
+    tone === 'warmgold' ? 'text-warmgold' : tone === 'sage' ? 'text-sage' : 'text-honey';
+  return (
+    <Link
+      href={href}
+      className={`flex items-center justify-between rounded-2xl border p-4 ${toneClasses}`}
+    >
+      <div>
+        <div className="text-sm font-bold text-ink">{title}</div>
+        <div className="mt-0.5 text-xs font-medium text-ink-soft">{desc}</div>
+      </div>
+      <span className={arrowClass}>→</span>
+    </Link>
   );
 }
