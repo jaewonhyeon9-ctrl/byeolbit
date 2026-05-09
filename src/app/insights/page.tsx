@@ -1,14 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { INSIGHTS, getDailyInsight } from '@/lib/insights';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  INSIGHTS,
+  INSIGHT_CATEGORY_LABELS,
+  INSIGHT_CATEGORY_TONE,
+  getDailyInsight,
+  type InsightCategory,
+} from '@/lib/insights';
 import { loadSettings } from '@/lib/storage';
 
 export default function InsightsPage() {
   const [seed, setSeed] = useState(0);
   const [streak, setStreak] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [filter, setFilter] = useState<InsightCategory | 'all'>('all');
 
   useEffect(() => {
     const s = loadSettings();
@@ -19,6 +26,13 @@ export default function InsightsPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const today_insight = getDailyInsight(seed, today);
+
+  const visibleInsights = useMemo(
+    () => (filter === 'all' ? INSIGHTS : INSIGHTS.filter((it) => it.category === filter)),
+    [filter]
+  );
+
+  const categories = Object.keys(INSIGHT_CATEGORY_LABELS) as InsightCategory[];
 
   if (!mounted) {
     return <div className="h-40 animate-pulse rounded-3xl bg-paper-card/30" />;
@@ -76,6 +90,12 @@ export default function InsightsPage() {
             desc="평소 페이스 대비 오늘·이번주·이번달"
             tone="clay"
           />
+          <HubCard
+            href="/recovery"
+            title="신용회복 길잡이"
+            desc="워크아웃·개인회생·파산·무료 상담 창구"
+            tone="warmgold"
+          />
         </div>
       </section>
 
@@ -86,9 +106,44 @@ export default function InsightsPage() {
             {INSIGHTS.length}개의 별빛
           </span>
         </div>
+
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+              filter === 'all'
+                ? 'border-ink/40 bg-ink/10 text-ink'
+                : 'border-line/60 bg-paper-card/40 text-ink-soft hover:bg-paper-card/70'
+            }`}
+          >
+            전체 {INSIGHTS.length}
+          </button>
+          {categories.map((cat) => {
+            const tone = INSIGHT_CATEGORY_TONE[cat];
+            const count = INSIGHTS.filter((it) => it.category === cat).length;
+            const active = filter === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFilter(cat)}
+                className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                  active
+                    ? `${tone.chip} ${tone.chipText}`
+                    : 'border-line/60 bg-paper-card/40 text-ink-soft hover:bg-paper-card/70'
+                }`}
+              >
+                {INSIGHT_CATEGORY_LABELS[cat]} {count}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col gap-2">
-          {INSIGHTS.map((it) => {
+          {visibleInsights.map((it) => {
             const isToday = it.id === today_insight.id;
+            const tone = INSIGHT_CATEGORY_TONE[it.category];
             return (
               <div
                 key={it.id}
@@ -99,7 +154,14 @@ export default function InsightsPage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm font-medium text-ink">{it.title}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${tone.chip} ${tone.chipText}`}
+                    >
+                      {INSIGHT_CATEGORY_LABELS[it.category]}
+                    </span>
+                    <div className="text-sm font-medium text-ink">{it.title}</div>
+                  </div>
                   {isToday && (
                     <span className="rounded-full bg-warmgold/20 px-2 py-0.5 text-[10px] text-warmgold">
                       오늘

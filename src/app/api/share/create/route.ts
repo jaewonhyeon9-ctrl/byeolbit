@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { clientIp, rateLimit } from '@/lib/api-limits';
 
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN =
@@ -41,6 +42,15 @@ export async function POST(req: NextRequest) {
           '공유 기능 백엔드 미설정 — Vercel Storage에서 Upstash Redis (또는 KV) 연결 필요',
       },
       { status: 503 }
+    );
+  }
+
+  const ip = clientIp(req);
+  const rl = await rateLimit('share-create', ip, 20, 3600);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `공유 링크 발급이 너무 잦아요. 1시간 뒤 다시 시도해주세요. (${rl.count}/${rl.limit})` },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
     );
   }
 

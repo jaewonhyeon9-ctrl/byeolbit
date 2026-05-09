@@ -4,11 +4,17 @@
   "description": "빚을 빛으로 바꾸는 시간. 별빛이 되는 순간까지.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050518",
-  "theme_color": "#050518",
+  "background_color": "#f5ecd6",
+  "theme_color": "#f5ecd6",
   "orientation": "portrait",
   "lang": "ko",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { StarryBackground } from '@/components/StarryBackground';
 import { BottomNav } from '@/components/BottomNav';
+import { NotificationBoot } from '@/components/NotificationBoot';
 
 export const metadata: Metadata = {
   title: '별빚도장 — 별빛이 되는 순간까지',
@@ -34,9 +35,12 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-full">
         <StarryBackground />
+        <NotificationBoot />
         <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col">
           <main className="flex-1 px-5 pt-6 pb-28">{children}</main>
           <BottomNav />

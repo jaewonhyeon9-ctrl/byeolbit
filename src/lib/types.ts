@@ -2,6 +2,7 @@ export type DebtCategory =
   | 'mortgage'   // 주택담보대출
   | 'jeonse'     // 전세자금대출
   | 'business'   // 사업자대출
+  | 'payable'    // 외상매입금·미지급금 (사업자)
   | 'student'    // 학자금
   | 'auto'       // 자동차 할부
   | 'card'       // 카드론·현금서비스·리볼빙

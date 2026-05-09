@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkImageSize, clientIp, rateLimit } from '@/lib/api-limits';
 
 const MODEL = 'gemini-2.5-flash';
 
@@ -74,12 +75,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY 미설정' }, { status: 500 });
   }
 
+  const ip = clientIp(req);
+  const rl = await rateLimit('ocr-expenses', ip, 10, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `OCR 요청이 너무 잦아요. 1분 뒤 다시 시도해주세요. (${rl.count}/${rl.limit})` },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { image, mimeType } = body as { image?: string; mimeType?: string };
 
     if (!image || typeof image !== 'string') {
       return NextResponse.json({ error: '이미지 데이터 누락' }, { status: 400 });
+    }
+
+    const sizeCheck = checkImageSize(image);
+    if (!sizeCheck.ok) {
+      return NextResponse.json({ error: sizeCheck.error }, { status: 413 });
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkImageSize, clientIp, rateLimit } from '@/lib/api-limits';
 
 const MODEL = 'gemini-2.5-flash';
 
@@ -13,6 +14,7 @@ const SCHEMA = {
         'mortgage',
         'jeonse',
         'business',
+        'payable',
         'student',
         'auto',
         'card',
@@ -43,6 +45,7 @@ const PROMPT = `이 이미지는 한국의 부채/대출 관련 화면 캡처입
   - mortgage: 주택담보대출
   - jeonse: 전세자금대출
   - business: 사업자대출
+  - payable: 외상매입금·미지급금 (거래처에 갚아야 할 외상값, 식자재·납품 미결제 등 — 사업자만 해당)
   - student: 학자금대출
   - auto: 자동차 할부
   - card: 카드론·현금서비스·리볼빙·카드 결제 미납
@@ -68,12 +71,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY 미설정' }, { status: 500 });
   }
 
+  const ip = clientIp(req);
+  const rl = await rateLimit('ocr-debt', ip, 10, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `OCR 요청이 너무 잦아요. 1분 뒤 다시 시도해주세요. (${rl.count}/${rl.limit})` },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { image, mimeType } = body as { image?: string; mimeType?: string };
 
     if (!image || typeof image !== 'string') {
       return NextResponse.json({ error: '이미지 데이터 누락' }, { status: 400 });
+    }
+
+    const sizeCheck = checkImageSize(image);
+    if (!sizeCheck.ok) {
+      return NextResponse.json({ error: sizeCheck.error }, { status: 413 });
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;

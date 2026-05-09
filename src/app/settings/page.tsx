@@ -7,8 +7,17 @@ import {
   exportData,
   getStorageStats,
   importData,
+  loadSettings,
+  saveSettings,
   type BackupBundle,
 } from '@/lib/storage';
+import {
+  fireAllDueChecks,
+  getPermissionState,
+  registerServiceWorker,
+  requestPermission,
+  type PermissionState,
+} from '@/lib/notifications';
 import { downloadCSV } from '@/lib/export';
 import { encryptShare } from '@/lib/share-crypto';
 import { formatKRW } from '@/lib/format';
@@ -31,6 +40,10 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [permission, setPermission] = useState<PermissionState>('default');
+  const [pushBusy, setPushBusy] = useState(false);
 
   const [shareTtlDays, setShareTtlDays] = useState(7);
   const [shareLink, setShareLink] = useState<{
@@ -87,8 +100,35 @@ export default function SettingsPage() {
 
   useEffect(() => {
     refreshStats();
+    setPermission(getPermissionState());
+    setPushEnabled(loadSettings().pushEnabled);
     setMounted(true);
   }, []);
+
+  async function togglePush(next: boolean) {
+    setPushBusy(true);
+    try {
+      if (next) {
+        const state = await requestPermission();
+        setPermission(state);
+        if (state !== 'granted') {
+          setPushEnabled(false);
+          return;
+        }
+        await registerServiceWorker();
+        const s = loadSettings();
+        saveSettings({ ...s, pushEnabled: true });
+        setPushEnabled(true);
+        await fireAllDueChecks();
+      } else {
+        const s = loadSettings();
+        saveSettings({ ...s, pushEnabled: false });
+        setPushEnabled(false);
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   function handleExport() {
     const bundle = exportData();
@@ -363,19 +403,49 @@ export default function SettingsPage() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-line/60 bg-paper-card/50 p-5">
-        <h2 className="text-sm font-bold text-ink">자동 동기화 (준비 중)</h2>
+      <section className="rounded-3xl border border-sage/40 bg-sage/5 p-5">
+        <h2 className="text-sm font-bold text-ink">오늘의 별빛 알림</h2>
         <p className="mt-1 text-xs font-medium leading-relaxed text-ink-soft">
-          이메일 매직링크로 로그인하면 여러 기기 간 자동 동기화 + 클라우드 백업이
-          가능해질 예정이에요. 출시 직전 추가 예정입니다.
+          앱을 열 때 <strong className="text-ink">오늘 메시지 + 상환일 별빚</strong>을
+          알림으로 한 번씩 띄워드려요. 알림은 이 기기에서만 동작하고,
+          외부로 데이터가 나가지 않습니다.
         </p>
-        <button
-          type="button"
-          disabled
-          className="mt-4 w-full rounded-xl border border-dashed border-line/60 bg-paper/40 py-3 text-sm font-bold text-ink-soft/60"
-        >
-          이메일로 로그인 (준비 중)
-        </button>
+
+        {permission === 'unsupported' ? (
+          <div className="mt-3 rounded-xl border border-line/60 bg-paper/40 p-3 text-[11px] text-ink-soft">
+            이 브라우저는 알림을 지원하지 않아요. iOS Safari는 홈 화면에 추가하면
+            지원됩니다 (iOS 16.4+).
+          </div>
+        ) : permission === 'denied' ? (
+          <div className="mt-3 rounded-xl border border-clay/40 bg-clay/10 p-3 text-[11px] text-clay">
+            이 사이트의 알림 권한이 차단돼 있어요. 브라우저 주소창 자물쇠 아이콘에서
+            알림을 "허용"으로 바꾼 뒤 다시 시도해주세요.
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => togglePush(!pushEnabled)}
+            disabled={pushBusy}
+            className={`mt-4 flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${
+              pushEnabled
+                ? 'border-sage/50 bg-sage text-paper'
+                : 'border-line/60 bg-paper-card/80 text-ink hover:bg-paper-card'
+            }`}
+          >
+            <span>{pushEnabled ? '알림 켜져 있음' : '알림 켜기'}</span>
+            <span
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
+                pushEnabled ? 'bg-paper/40' : 'bg-line/60'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-paper transition ${
+                  pushEnabled ? 'translate-x-4' : 'translate-x-1'
+                }`}
+              />
+            </span>
+          </button>
+        )}
       </section>
 
       <section className="rounded-3xl border border-clay/30 bg-clay/5 p-5">

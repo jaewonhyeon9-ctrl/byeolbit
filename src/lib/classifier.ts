@@ -29,6 +29,10 @@ export function classify(
     return 'bad';
   }
 
+  if (category === 'payable') {
+    return 'neutral';
+  }
+
   if (rate >= 12) return 'bad';
   if (rate < 5) return 'good';
   return 'neutral';
@@ -38,6 +42,7 @@ export const CATEGORY_LABELS: Record<DebtCategory, string> = {
   mortgage: '주택담보대출',
   jeonse: '전세자금대출',
   business: '사업자대출',
+  payable: '외상·미지급금',
   student: '학자금대출',
   auto: '자동차 할부',
   card: '카드론·현금서비스',
