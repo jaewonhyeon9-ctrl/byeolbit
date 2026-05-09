@@ -19,7 +19,7 @@
 - Gemini 2.5 Flash (OCR — 부채 1건/가계부 다항목)
 - 테마: 베이지 + 어스톤 (sage/honey/clay)
 
-## 라우트 (19개)
+## 라우트 (21개)
 
 | Path | 기능 |
 |------|------|
@@ -34,11 +34,13 @@
 | `/calendar` | 지출 캘린더 (전 주기 자동 표시 + OCR 가져오기) |
 | `/spending` | 지출 온도 분석 + 카테고리 + 14일 흐름 + TOP 5 |
 | `/recovery` | **신용회복 길잡이 — 워크아웃·개인회생·파산·무료상담** |
+| `/mandalart` | **만다라트 9×9 → AI가 아이젠하워 4분면으로 자동 분류** |
 | `/settings` | 백업/복원, 엑셀/PDF, 공유 링크, 알림, 위험구역 |
 | `/report` | 인쇄 전용 깔끔 리포트 (PDF 저장) |
 | `/share/[id]` | E2E 암호화 공유 링크 읽기 전용 뷰 |
 | `/api/ocr/extract-debt` | 단일 부채 OCR (rate limit 10/분, 6MB 한도) |
 | `/api/ocr/extract-expenses` | 가계부 다항목 OCR (rate limit 10/분, 6MB 한도) |
+| `/api/ai/eisenhower` | **만다라트 → 4분면 자동 분류 (Gemini Flash, rate limit 10/분)** |
 | `/api/share/create` | 공유 링크 발급 (rate limit 20/시간) |
 | `/api/share/[id]` | 공유 데이터 조회 |
 
@@ -49,6 +51,7 @@
 - `ScheduledExpense`: 이름, 금액, 날짜, 카테고리(12), 완납여부, source(manual/ocr)
 - `RoutineItem`: 시간(HH:MM), 활동
 - `principles`: string[15]
+- `MandalartState`: 9×9 cells (string[][]) + 마지막 AI 분류 매트릭스 + 생성 시각 (세부목표 8칸 ↔ 바깥 블록 중심 자동 mirror)
 - `Settings`: 전략, insightSeed, streak
 
 ## 환경변수 (Vercel 등록 완료)
@@ -89,6 +92,7 @@
 - 2026-05-09: Upstash Redis로 공유 링크 백엔드 추가
 - 2026-05-09: 가계부 OCR + 지출 온도 분석 추가
 - 2026-05-09 저녁: OCR rate limit, 외상·미지급금 카테고리, 인사이트 30개, 신용회복 페이지, PWA 아이콘, 로컬 알림 일괄 추가
+- 2026-05-09 저녁: 만다라트(9×9) → 아이젠하워 매트릭스 자동 분류 추가 (Gemini Flash, q1~q4 + 분류 근거)
 
 ## 스크립트
 

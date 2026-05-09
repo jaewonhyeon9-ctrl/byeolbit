@@ -7,6 +7,12 @@ import type {
   ScheduledExpense,
   Settings,
 } from './types';
+import {
+  loadMandalart,
+  MANDALART_STORAGE_KEY,
+  saveMandalart,
+  type MandalartState,
+} from './mandalart';
 
 const KEY_DEBTS = 'byeolbit:debts:v1';
 const KEY_PAYMENTS = 'byeolbit:payments:v1';
@@ -132,6 +138,7 @@ export function clearAll(): void {
   window.localStorage.removeItem(KEY_PRINCIPLES);
   window.localStorage.removeItem(KEY_ROUTINE);
   window.localStorage.removeItem(KEY_EXPENSES);
+  window.localStorage.removeItem(MANDALART_STORAGE_KEY);
 }
 
 export function newId(): string {
@@ -151,6 +158,7 @@ export interface BackupBundle {
   principles?: string[];
   routine?: RoutineItem[];
   expenses?: ScheduledExpense[];
+  mandalart?: MandalartState;
 }
 
 export function exportData(): BackupBundle {
@@ -164,6 +172,7 @@ export function exportData(): BackupBundle {
     principles: loadPrinciples(),
     routine: loadRoutine(),
     expenses: loadExpenses(),
+    mandalart: loadMandalart(),
   };
 }
 
@@ -196,6 +205,9 @@ export function importData(bundle: BackupBundle): {
   }
   if (Array.isArray(bundle.expenses)) {
     saveExpenses(bundle.expenses);
+  }
+  if (bundle.mandalart && typeof bundle.mandalart === 'object') {
+    saveMandalart(bundle.mandalart);
   }
 
   return { debts: bundle.debts.length, payments: bundle.payments.length };

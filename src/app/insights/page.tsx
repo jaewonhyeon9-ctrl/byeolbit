@@ -96,6 +96,12 @@ export default function InsightsPage() {
             desc="워크아웃·개인회생·파산·무료 상담 창구"
             tone="warmgold"
           />
+          <HubCard
+            href="/mandalart"
+            title="만다라트 → 매트릭스"
+            desc="9×9 만다라트를 AI가 아이젠하워 4분면으로"
+            tone="sage"
+          />
         </div>
       </section>
 
